@@ -4,3 +4,5 @@
 /pyvenv.cfg
 /Scripts
 /share
+/.streamlit
+.streamlit/secrets.toml

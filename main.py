@@ -20,8 +20,8 @@ from datetime import date
 from io import BytesIO
 import quantstats as qs
 import altair as alt
-import MySQLdb
-import sshtunnel
+#import MySQLdb
+#import sshtunnel
 
 qs.extend_pandas()
 

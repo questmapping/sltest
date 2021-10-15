@@ -183,13 +183,18 @@ elif main_options == 'Rolling Returns':
     maxlist = []
     minlist = []
     avglist = []
+    perneglist = []
     index = []
 
     for i in range(1, max_years_rr+1):
-
-        max_ret = benchmark_returns.rolling(TRADINGDAYS*i).sum().max()
-        min_ret = benchmark_returns.rolling(TRADINGDAYS*i).sum().min()
-        avg_ret = benchmark_returns.rolling(TRADINGDAYS*i).sum().mean()
+        cumsum = benchmark_returns.rolling(TRADINGDAYS*i).sum()
+        list1 = cumsum.to_list()
+        pos = len([num for num in list1 if num >= 0])
+        neg = len([num for num in list1 if num < 0])
+        perneglist.append(neg/(pos+neg))
+        max_ret = cumsum.max()
+        min_ret = cumsum.min()
+        avg_ret = cumsum.mean()
         if i < 10:
             index.append(f"0{i}Yr")
         else:
@@ -202,6 +207,7 @@ elif main_options == 'Rolling Returns':
         'Minimum Returns': minlist,
         'Maximum Returns': maxlist,
         'Average Returns': avglist,
+        'Negative Returns Percentage':perneglist,
     }
 
     rr_df = pd.DataFrame(data, index=index)
@@ -216,7 +222,7 @@ elif main_options == 'Rolling Returns':
 
     rr_df.reset_index(level=0, inplace=True)
 
-    rr_df.columns = ['Years', 'Minimum', 'Maximum', 'Average']
+    rr_df.columns = ['Years', 'Minimum', 'Maximum', 'Average','Negatives']
 
     # https://altair-viz.github.io/user_guide/data.html?highlight=wide#long-form-vs-wide-form-data
     replong = rr_df.melt('Years', var_name='RR', value_name='RollingReturns')

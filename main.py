@@ -82,7 +82,8 @@ def load_benchmark_returns(ticker):
 
 sl.sidebar.header("Opzioni")
 main_options = sl.sidebar.selectbox(
-    "Cosa vuoi Fare", ('Rolling Returns', 'WSB Mentions', 'Strategy Check')
+    "Cosa vuoi Fare", ('Drawdowns', 'Rolling Returns',
+                       'WSB Mentions', 'Strategy Check')
 )
 if main_options == 'WSB Mentions':
 
@@ -127,7 +128,8 @@ elif main_options == 'Strategy Check':
         data3_load_state = sl.text("Sistemando i dati...")
 
         # pareggiamo le date di ritorno
-        benchmark_returns = benchmark_returns[strategy_returns.index[0]                                              :strategy_returns.index[-1]]
+        benchmark_returns = benchmark_returns[strategy_returns.index[0]
+            :strategy_returns.index[-1]]
 
         oldindex = benchmark_returns.index.tolist()
         newindex = []
@@ -159,6 +161,67 @@ elif main_options == 'Strategy Check':
 
         sl.altair_chart(chart, use_container_width=True)
 
+elif main_options == 'Drawdowns':
+
+    sl.header('Drawdowns')
+
+    ticker = sl.sidebar.text_input("Benchmark", value="SPY", max_chars=5)
+
+    dd_options = sl.sidebar.selectbox(
+        "Come li vuoi ordinare", ('Durata più lunga',
+                                  'Drawdown Massimo Peggiore')
+    )
+
+    data_load_state = sl.text("Caricando Ritorni Benchmark...")
+
+    benchmark_returns = load_benchmark_returns(ticker.upper())
+
+    data_load_state.text('Caricando Ritorni Benchmark... Fatto!')
+
+    data2_load_state = sl.text("Calcolando i Drawdowns...")
+
+    dd = benchmark_returns.to_drawdown_series()
+
+    dd_info_unordered = qs.stats.drawdown_details(dd)
+
+    if (dd_options == 'Durata più lunga'):
+
+        dd_info = dd_info_unordered.sort_values(by='days', ascending=False)
+
+    elif (dd_options == 'Drawdown Massimo Peggiore'):
+
+        dd_info = dd_info_unordered.sort_values(
+            by='max drawdown', ascending=True)  # valori negativ
+
+    dd_info = dd_info.drop(columns=['99% max drawdown'])
+
+    dd_chart = pd.DataFrame({
+        'Date': dd.index,
+        'Drawdown': dd.values
+    })
+
+    data2_load_state.text('Calcolando i Drawdowns... Fatto!')
+
+    sl.dataframe(dd_info)
+
+    chart = alt.Chart(dd_chart).mark_area(
+        line={'color': 'red'},
+        color=alt.Gradient(
+            gradient='linear',
+            stops=[alt.GradientStop(color='darkred', offset=0),
+                   alt.GradientStop(color='red', offset=1)],
+            x1=1,
+            x2=1,
+            y1=1,
+            y2=0
+        )
+    ).encode(
+        alt.X('Date:T'),
+        alt.Y('Drawdown:Q', axis=alt.Axis(format='%')),
+        tooltip=['Date', 'Drawdown']
+    ).interactive()
+
+    sl.altair_chart(chart, use_container_width=True)
 
 elif main_options == 'Rolling Returns':
 
@@ -207,7 +270,7 @@ elif main_options == 'Rolling Returns':
         'Minimum Returns': minlist,
         'Maximum Returns': maxlist,
         'Average Returns': avglist,
-        'Negative Returns Percentage':perneglist,
+        'Negative Returns Percentage': perneglist,
     }
 
     rr_df = pd.DataFrame(data, index=index)
@@ -222,7 +285,7 @@ elif main_options == 'Rolling Returns':
 
     rr_df.reset_index(level=0, inplace=True)
 
-    rr_df.columns = ['Years', 'Minimum', 'Maximum', 'Average','Negatives']
+    rr_df.columns = ['Years', 'Minimum', 'Maximum', 'Average', 'Negatives']
 
     # https://altair-viz.github.io/user_guide/data.html?highlight=wide#long-form-vs-wide-form-data
     replong = rr_df.melt('Years', var_name='RR', value_name='RollingReturns')
@@ -231,7 +294,7 @@ elif main_options == 'Rolling Returns':
 
     chart = alt.Chart(replong).mark_line(point=True).encode(
         alt.X('Years:O'),
-        alt.Y('RollingReturns:Q',axis=alt.Axis(format='%')),
+        alt.Y('RollingReturns:Q', axis=alt.Axis(format='%')),
         color='RR:N',
         tooltip=['Years', 'RollingReturns']
     ).interactive()

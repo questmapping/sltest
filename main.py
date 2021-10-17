@@ -236,6 +236,17 @@ elif main_options == 'Drawdowns':
 
     data2_load_state.text('Calcolando i Drawdowns... Fatto!')
 
+    data3_load_state = sl.text("Calcolando Statistica...")
+
+    dd_days_quantiles = dd_info.groupby(pd.cut(dd_info['days'], 500))['days'].count()
+    
+    dd_days_quantiles = pd.DataFrame({
+        'DaysRange': [x.right for x in dd_days_quantiles.index],
+        'HowMany': dd_days_quantiles.values
+    })
+
+    data3_load_state.text('Calcolando Statistica... Fatto!')
+
     sl.dataframe(dd_info)
 
     chart = alt.Chart(dd_chart).mark_area(
@@ -256,6 +267,17 @@ elif main_options == 'Drawdowns':
     ).interactive()
 
     sl.altair_chart(chart, use_container_width=True)
+
+    sl.dataframe(dd_days_quantiles)
+
+    chart2 = alt.Chart(dd_days_quantiles).mark_bar().encode(
+        alt.X("DaysRange:Q", bin=False),
+        alt.Y('HowMany:Q'),
+        tooltip=['DaysRange', 'HowMany']
+    ).interactive()
+
+    sl.altair_chart(chart2, use_container_width=True)
+
 
 elif main_options == 'Rolling Returns':
 

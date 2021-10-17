@@ -6,6 +6,7 @@
 # pip install quantstats
 # pip install mysqlclient
 # pip install sshtunnel
+# pip install boto3
 # pip freeze (per vedere le versioni da mettere in requirements.txt)
 # streamlit run main.py
 # ctrl+C
@@ -20,25 +21,36 @@ from datetime import date
 from io import BytesIO
 import quantstats as qs
 import altair as alt
+import boto3
 #import MySQLdb
 #import sshtunnel
 
 qs.extend_pandas()
 
+#Le chiavi di accesso sono oggetti JSON
+client = boto3.client(
+    'dynamodb',
+    aws_access_key_id=sl.secrets['aws_credentials']['aws_access_key_id'],
+    aws_secret_access_key=sl.secrets['aws_credentials']['aws_secret_access_key'],
+    region_name=sl.secrets['aws_credentials']['region_name'],
+)
+
+newtablename = 'TestTable'
+
 # sshtunnel.SSH_TIMEOUT = 5.0
 # sshtunnel.TUNNEL_TIMEOUT = 5.0
 
 # with sshtunnel.SSHTunnelForwarder(
-#     (sl.secrets.ssh_credentials.ssh_host),
-#     ssh_username=sl.secrets.ssh_credentials.ssh_user, ssh_password=sl.secrets.ssh_credentials.ssh_pass,
-#     remote_bind_address=(sl.secrets.db_credentials.url,
-#                          sl.secrets.ssh_credentials.ssh_bindport)
+#     (sl.secrets['ssh_credentials']['ssh_host']),
+#     ssh_username=sl.secrets['ssh_credentials']['ssh_user'], ssh_password=sl.secrets['ssh_credentials']['ssh_pass'],
+#     remote_bind_address=(sl.secrets['db_credentials']['url'],
+#                          sl.secrets['ssh_credentials']['ssh_bindport'])
 # ) as tunnel:
 #     connection = MySQLdb.connect(
-#         user=sl.secrets.db_credentials.username,
-#         passwd=sl.secrets.db_credentials.password,
-#         host=sl.secrets.ssh_credentials.ssh_localhost, port=tunnel.local_bind_port,
-#         db=sl.secrets.db_credentials.db_name,
+#         user=sl.secrets.['db_credentials']['username'],
+#         passwd=sl.secrets.['db_credentials']['password'],
+#         host=sl.secrets.['ssh_credentials']['ssh_localhost'], port=tunnel.local_bind_port,
+#         db=sl.secrets.['db_credentials']['db_name'],
 #     )
 
 
@@ -71,6 +83,13 @@ def load_benchmark_returns(ticker):
         data2_load_state.text('Non riesco a caricare il Benchmark')
 
 
+def load_wsbdatemention(dates, newtablename):
+    query = "SELECT * FROM \""+newtablename + \
+        "\" where \"Date\" = '"+dates.strftime('%Y-%m-%d')+"'"
+    response = client.execute_statement(Statement=query)
+    # Dynamo DB ci torna una lista di oggetti JSON
+    return response['Items']
+
 # if (connection.open):
 
 #     c = connection.cursor()
@@ -79,6 +98,7 @@ def load_benchmark_returns(ticker):
 #           WHERE price < %s""", (max_price,))
 
 #     query_results = c.fetchall()
+
 
 sl.sidebar.header("Opzioni")
 main_options = sl.sidebar.selectbox(
@@ -91,14 +111,29 @@ if main_options == 'WSB Mentions':
 
     year = sl.sidebar.slider("Anno", 2020, date.today().year, 2020)
 
-    data_load_state = sl.text("Caricando...")
+    #dates = sl.sidebar.date_input('Data Specifica', date(2021, 9, 23))
+    dates = sl.sidebar.date_input('Data Specifica', date(
+        2021, 9, 23), min_value=date(2021, 9, 21), max_value=date(2021, 9, 23))
+
+    data_load_state = sl.text("Caricando Anno...")
 
     df = load_wsbmention(year)
 
-    data_load_state.text('Caricando... Fatto!')
+    data_load_state.text('Caricando Anno... Fatto!')
+
+    data_load_state2 = sl.text("Caricando Data Specifica...")
+
+    resp = load_wsbdatemention(dates, newtablename)
+
+    data_load_state2.text('Caricando Data Specifica... Fatto!')
 
     # style per avere interi senza virgola
+    sl.subheader("ANNO "+str(year))
     sl.dataframe(df.style.format("{:.0f}"))
+
+    if len(resp):
+        sl.subheader("Data Specifica "+dates.strftime('%Y-%m-%d'))
+        sl.write(resp)
 
 elif main_options == 'Strategy Check':
 
@@ -128,8 +163,7 @@ elif main_options == 'Strategy Check':
         data3_load_state = sl.text("Sistemando i dati...")
 
         # pareggiamo le date di ritorno
-        benchmark_returns = benchmark_returns[strategy_returns.index[0]
-            :strategy_returns.index[-1]]
+        benchmark_returns = benchmark_returns[strategy_returns.index[0]                                              :strategy_returns.index[-1]]
 
         oldindex = benchmark_returns.index.tolist()
         newindex = []
